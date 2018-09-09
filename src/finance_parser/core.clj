@@ -112,7 +112,7 @@
 
 (defn clean-transaction
   [transaction-string]
-  (s/replace transaction-string #"\n" ""))
+  (s/replace transaction-string #"\n" " "))
 
 (defn parse-history
   "returns list containing the summary map and the remaining document text"
@@ -130,11 +130,6 @@
                             [nil []])
                           second
                           (map clean-transaction))]
-    (println banner)
-    (doseq [x transactions]
-      (println x))
-    (println (str "Transaction Count: " (count transactions)))
-    (println banner)
     [transactions remainder]))
 
 (defn parse-check-summary
@@ -146,18 +141,57 @@
         lines (rest (s/split-lines main-text))]
     [{} remainder]))
 
+(def section-defs
+  [{:section-name "Intro" :next-start "activity summary"}
+   {:section-name "Activity Summary" :next-start "transaction history"}
+   {:section-name "Transaction History" :next-start "summary of checks written"}
+   {:section-name "Check Summary" :next-start "worksheet to balance your account"}
+   {:section-name "Balance Worksheet" :next-start nil}])
+
+(defn clean-raw-text
+  [raw-text]
+  (as-> raw-text v
+    (s/lower-case v)
+    ;(s/split-lines v)
+    ;(filter #(not (re-matches #"^\w*$" %)) v) ; empty lines
+    ;(filter #() v) ; page number lines
+    ))
+
+(defn split-text
+  "(In progress, not used yet) split text into labelled sections to simplify parse functions"
+  [clean-text]
+  (reduce (fn [[remaining-text processed] {:keys [section-name next-start]}]
+            (let [text-length (count remaining-text)
+                  index-of-remainder (if next-start
+                                       (s/index-of remaining-text next-start)
+                                       (inc text-length))
+                  no-more-remainder (> index-of-remainder text-length)
+                  main-text (subs remaining-text 0 (dec index-of-remainder))
+                  new-remainder (if no-more-remainder
+                                  nil
+                                  (subs remaining-text index-of-remainder))
+                  new-processed (assoc processed section-name main-text)]
+              [new-remainder new-processed]))
+          [clean-text {}]
+          section-defs))
+
+(def sample-pdf-path "sample_statement.pdf")
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (let [raw-text (text/extract "sample_statement.pdf")
-        processed-text (s/lower-case raw-text)
+  (let [processed-text (-> sample-pdf-path text/extract clean-raw-text)
         [intro summary-text] (parse-intro processed-text) 
         [summary history-text] (parse-summary summary-text) 
         [history check-text] (parse-history history-text) 
         ; [check-summary worksheet-text] (parse-check-summary check-text) 
         ]
     (println summary)
-    (println history)))
+    (println (str "Transaction count: " (count history)))
+    (doseq [x history]
+      (println x))
+    ;(println (split-text processed-text))
+    ))
 
 
 
