@@ -68,7 +68,7 @@
   (let [[_ _ _ number] (s/split line #"\s+")]
     {:routing-number number}))
 
-(defn parse-summary
+(defn parse-activity
   "returns list containing the summary map and the remaining document text"
   [main-text]
   (let [lines (rest (s/split-lines main-text))
@@ -94,9 +94,15 @@
 
 (def month-date-regex #"^\d+\/\d+\w+")
 
+(def header-line-regex #"page \d+ of \d+")
+
 (defn transaction-start-line?
   [line]
   (re-find month-date-regex line))
+
+(defn page-header-line?
+  [line]
+  (re-find header-line-regex line))
 
 (defn fold-transaction-text-line
   [[builder built-list] line]
@@ -110,7 +116,7 @@
   [transaction-string]
   (s/replace transaction-string #"\n" " "))
 
-(defn parse-history
+(defn parse-transactions
   "returns list containing the summary map and the remaining document text"
   [main-text]
   (let [transaction-split-lines (->> main-text
@@ -140,17 +146,23 @@
    {:section-name :checks :next-start "worksheet to balance your account"}
    {:section-name :worksheet :next-start nil}])
 
+(def nl "\n")
+
 (defn clean-raw-text
   [raw-text]
   (as-> raw-text v
     (s/lower-case v)
-    ;(s/split-lines v)
-    ;(filter #(not (re-matches #"^\w*$" %)) v) ; empty lines
-    ;(filter #() v) ; page number lines
-    ))
+    (s/split-lines v)
+    (filter #(not (s/blank? %)) v)
+    (filter #(not (page-header-line? %)) v)
+    (s/join "\n" v)))
 
-(defn split-text
-  "(In progress, not used yet) split text into labelled sections to simplify parse functions"
+(defn banner-print
+  [value]
+  (println (str banner nl value nl banner)))
+
+(defn structure-text
+  "split text into labelled sections to simplify parse functions"
   [clean-text]
   (second
     (reduce (fn [[remaining-text processed] {:keys [section-name next-start]}]
@@ -173,20 +185,14 @@
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (let [processed-text (-> sample-pdf-path text/extract clean-raw-text)
-        {:keys [activity transactions]} (split-text processed-text)
-        ;[intro summary-text] (parse-intro processed-text) 
-        [summary history-text] (parse-summary activity) 
-        [history check-text] (parse-history transactions)]
-    ;(println summary)
-    ;(println (str "Transaction count: " (count history)))
-    ;(doseq [x history]
-      ;(println x))
-    (println banner)
-    (println summary)
-    ;(println history)
-    ;(doseq [[k v] split-results]
-      ;(println (str banner "\n" k "\n" banner "\n"))
-      ;(println v))
-    (println banner)
+  (let [{activity-text :activity transactions-text :transactions} (-> sample-pdf-path text/extract clean-raw-text structure-text)
+        activity (parse-activity activity-text)
+        transactions (parse-transactions transactions-text)]
+
+    (banner-print "Account Activity")
+    (println activity)
+
+    (banner-print (str "Transaction Count: " (count transactions)))
+    (doseq [x transactions]
+      (println x))
     ))
