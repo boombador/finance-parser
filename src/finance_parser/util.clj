@@ -6,18 +6,34 @@
 
 (defn banner-print
   [value]
-  (println (str banner nl value nl banner)))
+  (println (str banner nl value nl banner))
+  value)
 
 (defn header-print
   [header message]
   (banner-print header)
-  (println message))
+  (println message)
+  message)
 
 (defn header-print-list
   [header messages]
   (banner-print (str header " (" (count messages) ")") )
   (doseq [x messages]
-    (println x)))
+    (println x))
+  messages)
+
+(defn header-dump
+  [header message]
+  (banner-print header)
+  (println (pr-str message))
+  message)
+
+(defn header-dump-list
+  [header messages]
+  (banner-print (str header " (" (count messages) ")") )
+  (doseq [x messages]
+    (println (pr-str x)))
+  messages)
 
 (defn deep-merge [v & vs]
   (letfn [(rec-merge [v1 v2]

@@ -16,5 +16,6 @@
   "I don't do a whole lot ... yet."
   [& args]
   (let [{:keys [activity transactions]} (-> sample-pdf-path text/extract parse-statement)]
-    (header-print "Activity" activity)
-    (header-print-list "transactions" (map display-transaction transactions))))
+    ;(header-print "Activity" activity)
+    ;(header-print-list "transactions" (map display-transaction transactions))
+    (println "done procesing")))
