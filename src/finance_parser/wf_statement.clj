@@ -194,7 +194,7 @@
 (defn transactions-grouped-by-date-to-daily-balance
   [start-balance grouped-transactions]
   (->> grouped-transactions
-       (reduce fold-date-transactions-group [(parse-money start-balance) '()] )
+       (reduce fold-date-transactions-group [start-balance '()] )
        second
        reverse))
 
@@ -225,18 +225,19 @@
   
     (= (+ initial (map * solution deltas)) final)"
   [prior-balance next-balance deltas]
-  (->> (count deltas)
-       (expt 2)
-       range
-       (map #(number-to-coefficients (count deltas) %))
-       (filter (make-check-solution prior-balance next-balance deltas))
-       first  ;; FIXME: assumes exactly one result
-       ))
+  (let [valid-solutions (->> (count deltas)
+                                (expt 2)
+                                range
+                                (map #(number-to-coefficients (count deltas) %))
+                                (filter (make-check-solution prior-balance next-balance deltas)))]
+    (if (= 1 (count valid-solutions))
+      (first valid-solutions)
+      nil)))
 
 (defn set-transaction-sign
   [transaction coefficient]
   (assoc transaction
-         :credit-or-debit
+         :withdrawal-or-deposit
          (if (= coefficient 1) :deposit :withdrawal)))
 
 (defn to-ending-balance
@@ -255,13 +256,43 @@
         coefficients (get-valid-coefficients starting-balance ending-balance transaction-amounts)]
     (map set-transaction-sign date-transactions coefficients)))
 
+(def transaction-display-keys
+  [:date :withdrawal-or-deposit :amount :post-balance])
+
+(def tab "\t")
+
+(defn display-transaction-to-string
+  [{:keys [date withdrawal-or-deposit amount post-balance]}]
+  (str date tab withdrawal-or-deposit tab amount tab post-balance))
+
+(defn fold-classified-transaction
+  [[prior-balance finalized-transactions] transaction]
+  (let [amount (parse-money (first (get transaction :money)))
+        withdrawal (= :withdrawal (:withdrawal-or-deposit transaction))
+        signed-delta (if withdrawal (- amount) amount)
+        post-balance (+ prior-balance signed-delta)
+        new-transaction (-> transaction
+                            (dissoc :money)
+                            (assoc :amount amount)
+                            (assoc :previous-balance prior-balance)
+                            (assoc :post-balance post-balance))]
+    [post-balance (conj finalized-transactions new-transaction)]))
+
+(defn clean-classified-transactions
+  [start-balance transactions]
+  (second (reduce fold-classified-transaction
+                  [start-balance []]
+                  transactions)))
+
 (defn fill-transactions
   [activity raw-transactions]
-  (let [start-balance (get-in activity [:account-balance :start :amount])]
+  (let [start-balance (parse-money (get-in activity [:account-balance :start :amount]))]
     (->> raw-transactions
          (group-transactions start-balance)
          (map classify-transaction-date-group)
-         (flatten))))
+         flatten
+         (clean-classified-transactions start-balance)
+         (map display-transaction-to-string))))
 
 (defn parse-transactions
   "returns list containing the summary map and the remaining document text"
