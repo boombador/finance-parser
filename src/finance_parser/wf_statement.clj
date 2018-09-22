@@ -257,13 +257,28 @@
     (map set-transaction-sign date-transactions coefficients)))
 
 (def transaction-display-keys
-  [:date :withdrawal-or-deposit :amount :post-balance])
+  [:date :withdrawal-or-deposit :amount])
 
-(def tab "\t")
+(defn money-to-string
+  [amount]
+  (let [precise-amount (format "%.2f" amount)
+        str-amount (format "%9s" precise-amount)]
+    str-amount))
 
-(defn display-transaction-to-string
-  [{:keys [date withdrawal-or-deposit amount post-balance]}]
-  (str date tab withdrawal-or-deposit tab amount tab post-balance))
+(defn money-to-signed-string
+  [withdrawal-or-deposit amount]
+  (let [precise-amount (format "%.2f" amount)
+        signed-amount (if (= :withdrawal withdrawal-or-deposit)
+                        (str "(" precise-amount ")")
+                        (str precise-amount " "))
+        str-amount (format "%9s" signed-amount)]
+    str-amount))
+
+(defn transaction-to-string
+  [{:keys [date withdrawal-or-deposit amount description post-balance]}]
+  (let [amount-str (money-to-signed-string withdrawal-or-deposit amount)
+        balance-str (money-to-string post-balance)]
+    (str date u/tab amount-str u/tab balance-str u/tab description)))
 
 (defn fold-classified-transaction
   [[prior-balance finalized-transactions] transaction]
@@ -274,7 +289,6 @@
         new-transaction (-> transaction
                             (dissoc :money)
                             (assoc :amount amount)
-                            (assoc :previous-balance prior-balance)
                             (assoc :post-balance post-balance))]
     [post-balance (conj finalized-transactions new-transaction)]))
 
@@ -292,7 +306,7 @@
          (map classify-transaction-date-group)
          flatten
          (clean-classified-transactions start-balance)
-         (map display-transaction-to-string))))
+         (map transaction-to-string))))
 
 (defn parse-transactions
   "returns list containing the summary map and the remaining document text"
