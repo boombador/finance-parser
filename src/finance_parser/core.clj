@@ -6,6 +6,7 @@
             [finance-parser.wf_statement :refer [parse-statement]]))
 
 (def sample-pdf-path "sample_statement.pdf")
+(def sample-text-path "sample_statement_raw.txt")
 
 (defn display-transaction
   [{:keys [date money]}]
@@ -15,7 +16,7 @@
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (let [{:keys [activity transactions]} (-> sample-pdf-path text/extract parse-statement)]
-    ;(header-print "Activity" activity)
-    ;(header-print-list "transactions" (map display-transaction transactions))
-    (println "done procesing")))
+  (let [extracted-text (-> sample-pdf-path text/extract)
+        {:keys [activity transactions]} (parse-statement extracted-text)]
+    (header-print-list "activity" activity)
+    (header-print-list "transactions" transactions)))

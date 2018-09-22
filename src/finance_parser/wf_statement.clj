@@ -3,7 +3,15 @@
   (:require [pdfboxing.text :as text]
             [clojure.string :as s]
             [finance-parser.util :refer [deep-merge] :as u]
-            ))
+            [clojure.pprint :refer [cl-format]]))
+
+(defn abs [n] (max n (- n)))
+(defn to-binary-string
+  [str-length x]
+  (cl-format nil (str "~" str-length ",'0',B")  x))
+
+(defn expt [x n]
+  (reduce * (repeat n x)))
 
 (def section-defs
   [{:section-name :intro :next-start "activity summary"}
@@ -137,6 +145,12 @@
       (s/replace #"," "")
       Float/parseFloat))
 
+(defn strip [coll chars]
+  (apply str (remove #((set chars) %) coll)))
+
+(defn parse-money [money-str]
+  (parse-float (strip money-str "$,")))
+
 (defn parse-transaction-line
   [line]
   (let [split-line (s/split line #"\s+")
@@ -158,35 +172,9 @@
      :description (s/join " " remainder-without-money)}))
 
 (defn number-to-coefficients
-  [number]
-  (let [base-two-string (Integer/toString number 2)]
-    (map #(if (= % "1") 1 -1) base-two-string)))
-
-(defn expt [x n]
-  (reduce * (repeat n x)))
-
-(defn make-check-solution
-  [deltas next-balance]
-  (fn [coefficients]
-    (let [sign-adjusted-deltas (map * coefficients deltas)
-          calculated-balance (reduce + 0 sign-adjusted-deltas)]
-      (= next-balance calculated-balance))))
-
-(defn get-valid-coefficients
-  [prior-balance next-balance deltas]
-  (let [possibilities (expt 2 (count deltas))
-        check-solution (make-check-solution deltas next-balance)
-        possible-coefficient-lists (map number-to-coefficients (range possibilities))]
-    (filter check-solution possible-coefficient-lists)))
-
-(defn classify-withdrawal-or-deposit
-  [[prior-balance processed-transactions] [date-string day-transactions]]
-  (let [new-balance (-> day-transactions last :money last)
-        coefficients-solutions (get-valid-coefficients prior-balance new-balance (map #(-> % :money first parse-float) day-transactions))
-        ;updated (if (= 1 (count coefficients-solutions)) )
-        ;latest-transactions (map #() day-transactions)
-        ]
-    [new-balance []]))
+  [str-length number]
+  (let [second-attempt (to-binary-string str-length number)]
+    (map #(if (= % \1) 1 -1) second-attempt)))
 
 (defn date-key
   [[date-string _]]
@@ -194,14 +182,86 @@
         [months days] (map parse-int date-parts)]
     (+ days (* 35 months))))
 
+(defn fold-date-transactions-group
+  [accumulator item]
+  (let [[day-starting-balance modified-groups] accumulator
+        [date-string list-of-transactions] item
+        day-ending-balance (-> list-of-transactions last :money last parse-money)
+        transformed-date-group [day-starting-balance list-of-transactions]
+        latest-modified-groups (cons transformed-date-group modified-groups)]
+    [day-ending-balance latest-modified-groups]))
+
+(defn transactions-grouped-by-date-to-daily-balance
+  [start-balance grouped-transactions]
+  (->> grouped-transactions
+       (reduce fold-date-transactions-group [(parse-money start-balance) '()] )
+       second
+       reverse))
+
+(defn group-transactions
+  "Return a list of lists where each inner list contains the date string and the transactions
+  for that date, where the top-level list is sorted by the date"
+  [start-balance transactions]
+  (let [sorted-groups (->> transactions
+                           (group-by :date)
+                           seq
+                           (sort-by date-key))]
+    (transactions-grouped-by-date-to-daily-balance start-balance sorted-groups)))
+
+(defn make-check-solution
+  [prior-balance next-balance deltas]
+  (fn [coefficients]
+    (->> coefficients
+         (map * deltas)
+         (reduce + prior-balance)
+         ((fn [calculated-balance]
+             (abs (- next-balance calculated-balance))))
+         ((fn [delta]
+            (< delta 0.01))))))
+
+(defn get-valid-coefficients
+  "returns the sequence equal in length to deltas containing the coefficients
+  belonging in [1,-1] that if the result were called `solution` then:
+  
+    (= (+ initial (map * solution deltas)) final)"
+  [prior-balance next-balance deltas]
+  (->> (count deltas)
+       (expt 2)
+       range
+       (map #(number-to-coefficients (count deltas) %))
+       (filter (make-check-solution prior-balance next-balance deltas))
+       first  ;; FIXME: assumes exactly one result
+       ))
+
+(defn set-transaction-sign
+  [transaction coefficient]
+  (assoc transaction
+         :credit-or-debit
+         (if (= coefficient 1) :deposit :withdrawal)))
+
+(defn to-ending-balance
+  [date-transactions]
+  (-> date-transactions last :money last parse-float))
+
+(defn to-amounts
+  [date-transactions]
+  (map #(-> % :money first parse-float) date-transactions))
+
+(defn classify-transaction-date-group
+  "take a list of transactions and a starting balance "
+  [[starting-balance date-transactions]]
+  (let [ending-balance (to-ending-balance date-transactions)
+        transaction-amounts (to-amounts date-transactions)
+        coefficients (get-valid-coefficients starting-balance ending-balance transaction-amounts)]
+    (map set-transaction-sign date-transactions coefficients)))
+
 (defn fill-transactions
-  "hello there"
   [activity raw-transactions]
-  (let [start-balance (get-in activity [:account-balance :start :amount])
-        transactions-by-date (group-by :date raw-transactions)
-        sorted-date-transactions (sort-by date-key (seq transactions-by-date))
-        [_ updated-transactions] (reduce classify-withdrawal-or-deposit [start-balance []] sorted-date-transactions)]
-    updated-transactions))
+  (let [start-balance (get-in activity [:account-balance :start :amount])]
+    (->> raw-transactions
+         (group-transactions start-balance)
+         (map classify-transaction-date-group)
+         (flatten))))
 
 (defn parse-transactions
   "returns list containing the summary map and the remaining document text"
@@ -213,8 +273,8 @@
                                        (reverse transaction-split-lines))
         cleaned-transaction-lines (map clean-transaction transaction-joined-lines)
         raw-transactions (map parse-transaction-line cleaned-transaction-lines)
-        transactions (fill-transactions activity raw-transactions)] ;; TODO: finish
-    raw-transactions))
+        transactions (fill-transactions activity raw-transactions)]
+    transactions))
 
 (defn fold-section-into-structured
   [[remaining-text processed] {:keys [section-name next-start]}]

@@ -9,3 +9,6 @@ pom.xml.asc
 /.nrepl-port
 .hgignore
 .hg/
+
+sample_statement.pdf
+sample_statement_raw.txt
