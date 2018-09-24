@@ -3,7 +3,7 @@
   (:require [pdfboxing.text :as text]
             [clojure.string :as s]
             [finance-parser.util :as u]
-            [finance-parser.wf_statement :refer [parse-statement]]
+            [finance-parser.wf_statement :refer [parse-statement-text]]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.io :as io]
             ))
@@ -65,7 +65,6 @@
         options-summary
         ""
         "Actions:"
-        "  print    pretty print transactions from a statement"
         "  cache    save parsed transactions as edn"
         ""
         "Please refer to the manual page for more information."]
@@ -75,27 +74,27 @@
   (str "The following errors occurred while parsing your command:\n\n"
        (s/join \newline errors)))
 
-(def command-strings #{"cache" "print"})
-
-(def sample-pdf-path "sample_statement.pdf")
-(defn parse-and-print
-  [{:keys [file-path]}]
-  (let [extracted-text (text/extract file-path)
-        {:keys [activity transactions]} (parse-statement extracted-text)]
-    (u/header-print-list "activity" activity)
-    (u/header-print-list "transactions" transactions)))
+(defn to-cache-path
+  [file-path]
+  (str "cache/" (s/replace (.getName (io/file file-path)) "pdf" "edn")))
 
 (defn parse-and-cache
   [{:keys [file-path]}]
-  (let [extracted-text (text/extract file-path)
-        cache-path (str "cache/" (s/replace (.getName (io/file file-path)) "pdf" "edn"))
-        statement (parse-statement extracted-text)]
-    (u/header-print "cache-path" cache-path)
+  (let [cache-path (to-cache-path file-path)
+        statement (-> file-path text/extract parse-statement-text)]
     (u/serialize cache-path statement)))
 
+(defn read-from-cache
+  [file-path]
+  (let [cache-path (to-cache-path file-path)]
+    (u/deserialize cache-path)))
+
+(def sample-pdf-path "sample_statement.pdf")
 (def cli-options
   [["-f" "--file-path INPUT_FILE" "Statement PDF to parse"
     :default sample-pdf-path]])
+
+(def command-strings #{"cache" "print"})
 
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
@@ -125,6 +124,4 @@
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (case action
-        "print" (parse-and-print options)
-        "cache" (parse-and-cache options)
-        ))))
+        "cache" (parse-and-cache options)))))

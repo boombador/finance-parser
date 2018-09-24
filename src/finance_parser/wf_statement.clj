@@ -342,7 +342,7 @@
       [clean-text {}]
       section-defs)))
 
-(defn parse-statement
+(defn parse-statement-text
   [pdf-extracted-text]
   (let [segmented-text (-> pdf-extracted-text clean-raw-text segment-text)
         {activity-text :activity transactions-text :transactions} segmented-text
