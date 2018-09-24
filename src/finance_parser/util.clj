@@ -43,3 +43,24 @@
               v2))]
     (when (some identity vs)
       (reduce #(rec-merge %1 %2) v vs))))
+
+(defn serialize
+  [filepath data-structure]
+  (spit filepath (pr-str data-structure)))
+
+(defn deserialize
+  [filepath]
+  (read-string (slurp filepath)))
+
+(defn serialize-big
+  [filepath data-structure]
+  (with-open [w (clojure.java.io/writer filepath)]
+    (binding [*out* w]
+      (pr data-structure))))
+
+(defn deserialize-big
+  [filepath]
+  (with-open [r (java.io.PushbackReader. (clojure.java.io/reader filepath))]
+    (binding [*read-eval* false]
+      (read r))))
+
