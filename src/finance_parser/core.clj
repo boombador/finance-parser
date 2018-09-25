@@ -21,6 +21,12 @@
         statement (-> file-path text/extract parse-statement-text)]
     (u/serialize cache-path statement)))
 
+(defn parse-and-print
+  [{:keys [file-path]}]
+  (let [{:keys [activity transactions]} (-> file-path text/extract parse-statement-text)]
+    (u/header-print-list "Activity" activity)
+    (u/header-print-list "Transactions" transactions)))
+
 (defn parse-and-cache-dir
   [{:keys [directory]}]
   (let [files (file-seq (io/file directory))]
@@ -41,4 +47,5 @@
       (exit (if ok? 0 1) exit-message)
       (case action
         "cache" (parse-and-cache options)
-        "cache-dir" (parse-and-cache-dir options)))))
+        "cache-dir" (parse-and-cache-dir options)
+        "print" (parse-and-print options)))))
