@@ -4,7 +4,7 @@
             [finance-parser.util :as u]
             [clojure.string :as s]))
 
-(def command-strings #{"cache" "cache-dir" "print"})
+(def command-strings #{"cache" "cache-dir" "print" "server"})
 (def sample-pdf-path "sample_statement.pdf")
 
 (def cli-options

@@ -1,11 +1,14 @@
 (ns finance-parser.core
   (:gen-class)
+  (:use [org.httpkit.server :only [run-server]])
   (:require [pdfboxing.text :as text]
             [clojure.string :as s]
             [finance-parser.util :as u]
             [finance-parser.wf_statement :refer [parse-statement-text]]
             [finance-parser.cli :refer [exit validate-args]]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            ;[org.httpkit.server :as server]
+            ))
 
 (defn to-cache-file
   [file]
@@ -41,6 +44,11 @@
   (let [cache-path (to-cache-path file-path)]
     (u/deserialize cache-path)))
 
+(defn app [req]
+  {:status  200
+   :headers {"Content-Type" "text/html"}
+   :body    "hello HTTP!"})
+
 (defn -main [& args]
   (let [{:keys [action options exit-message ok?]} (validate-args args)]
     (if exit-message
@@ -48,4 +56,6 @@
       (case action
         "cache" (parse-and-cache options)
         "cache-dir" (parse-and-cache-dir options)
-        "print" (parse-and-print options)))))
+        "print" (parse-and-print options)
+        "server" (run-server app {:port 8080})
+        ))))
