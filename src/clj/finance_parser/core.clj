@@ -6,9 +6,10 @@
             [finance-parser.util :as u]
             [finance-parser.wf_statement :refer [parse-statement-text]]
             [finance-parser.cli :refer [exit validate-args]]
-            [clojure.java.io :as io]
             ;[org.httpkit.server :as server]
-            ))
+            [compojure.core :as compojure]
+            [compojure.route :as route]
+            [clojure.java.io :as io]))
 
 (defn to-cache-file
   [file]
@@ -44,18 +45,19 @@
   (let [cache-path (to-cache-path file-path)]
     (u/deserialize cache-path)))
 
-(defn app [req]
-  {:status  200
-   :headers {"Content-Type" "text/html"}
-   :body    "hello HTTP!"})
+(compojure/defroutes app
+  (compojure/GET "/" [] "<h1>Hello There World!</h1>")
+  (route/not-found "<h1>Page not found</h1>"))
 
-(defn -main [& args]
-  (let [{:keys [action options exit-message ok?]} (validate-args args)]
+(defn cli-program [cli-args]
+  (let [{:keys [action options exit-message ok?]} (validate-args cli-args)]
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (case action
         "cache" (parse-and-cache options)
         "cache-dir" (parse-and-cache-dir options)
         "print" (parse-and-print options)
-        "server" (run-server app {:port 8080})
-        ))))
+        "server" (run-server app {:port 8080})))))
+
+(defn -main [& args]
+  (cli-program args))
