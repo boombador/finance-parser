@@ -3,13 +3,13 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
                  [pdfboxing "0.1.14.1-SNAPSHOT"]
                  [org.clojure/tools.cli "0.4.1"]
                  [http-kit "2.3.0"]
                  [compojure "1.6.0"]
                  [garden "1.3.3"]
-                 [org.clojure/clojurescript "1.9.946"]
+                 [org.clojure/clojurescript "1.10.238"]
                  [ring/ring-core "1.6.2"]]
   :main finance-parser.core
   ;:main ^:skip-aot finance-parser.core
@@ -20,12 +20,12 @@
                                    :optimizations :none
                                    :output-to "resources/public/js/main.js"
                                    :output-dir "resources/public/js/out"}
-                        :figwheel {:websocket-host "web-clj.local"}
+                        :figwheel true  ;{:websocket-host "web-clj.local"}
                         :id "dev"
                         :source-paths ["src/cljs"]}]}
   :figwheel {:css-dirs ["resources/public/css"]
              :hawk-options {:watcher :polling}
-             :ring-handler web-clj.core/app
+             :ring-handler finance-parser.core/app
              :server-port 3000}
   :garden {:builds [{:id "screen"
                      :source-paths ["src/garden"]
@@ -34,7 +34,7 @@
                                 :pretty-print? false}}]}
   :min-lein-version "2.8.1"
   :plugins [[lein-cljsbuild "1.1.7"]
-            [lein-figwheel "0.5.14"]
+            [lein-figwheel "0.5.16"]
             [lein-garden "0.3.0"]
             [lein-ring "0.12.1"]]
   :resource-paths ["resources"]

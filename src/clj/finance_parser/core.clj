@@ -46,7 +46,7 @@
     (u/deserialize cache-path)))
 
 (compojure/defroutes app
-  (compojure/GET "/" [] "<h1>Hello There World!</h1>")
+  (compojure/GET "/" [] "<h1>Hello World!</h1>")
   (route/not-found "<h1>Page not found</h1>"))
 
 (defn cli-program [cli-args]
