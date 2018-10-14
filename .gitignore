@@ -12,8 +12,8 @@ pom.xml.asc
 
 sample_statement.pdf
 sample_statement_raw.txt
-statements/*
-!statements/.gitkeep
+data/*
+!data/.gitkeep
 cache/*
 !cache/.gitkeep
 

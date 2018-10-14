@@ -42,7 +42,6 @@
   indicating the action the program should take and the options provided."
   [args]
   (let [{:keys [options arguments errors summary] :as result} (parse-opts args cli-options)]
-    (u/header-print-list "result" result)
     (cond
       (:help options) ; help => exit OK with usage summary
       {:exit-message (usage summary) :ok? true}
