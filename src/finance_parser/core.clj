@@ -13,29 +13,15 @@
   [file]
   (str "cache/" (s/replace (.getName file) "pdf" "edn")))
 
-(defn to-cache-path-from-path
-  [file-path]
-  (to-cache-path-from-file (io/file file-path)))
-
 (defn parse-statement-path
   "returns a statement"
   [file-path]
   (-> file-path text/extract parse-statement-text))
 
-(defn parse-and-cache
-  [{:keys [file-path]}]
-  (u/serialize (to-cache-path-from-path file-path) (parse-statement-path file-path)))
-
 (defn print-statement
   [{:keys [activity transactions]}]
   (u/header-print-list "Activity" activity)
   (u/header-print-list "Transactions" transactions))
-
-(defn parse-and-cache-dir
-  [{:keys [directory]}]
-  (doseq [statement-file (file-seq (io/file directory))]
-    (u/serialize (to-cache-path-from-file statement-file)
-                 (parse-statement-path (.getPath statement-file)))))
 
 (defn options-to-statement-files
   [options]
@@ -48,20 +34,40 @@
 (defn parse-statement-file
   [statement-file]
   (-> (parse-statement-path (.getPath statement-file))
-      (assoc :source-file (.getName statement-file))))
+      (assoc :source-filename (.getName statement-file))))
 
 (defn statements-to-transactions
   [statements]
   (let [transaction-seqs (map :transactions statements)]
     (reduce concat [] transaction-seqs)))
 
+(defn valid-statement-file
+  [file]
+  (not (.isDirectory file)))
+
+(defn load-statement-file
+  [file]
+  (let [cache-file (io/file (to-cache-path-from-file file))
+        cache-path (.getPath cache-file)]
+    (if (.exists cache-file)
+      (u/deserialize cache-path)  ;; TODO: check staleness by sha contents
+      (let [parsed-statement (parse-statement-file file)]
+        (do
+          (u/serialize cache-path parsed-statement)
+          parsed-statement)))))
+
+(defn files-to-statements
+  [files]
+  (->> files
+       (filter valid-statement-file)
+       (map load-statement-file)
+       (sort-by :source-filename)))
+
 (defn transactions-cmd
   [options]
   (->> options
        options-to-statement-files
-       (filter #(not (.isDirectory %)))
-       (map parse-statement-file)
-       (sort-by :source-file)
+       files-to-statements
        statements-to-transactions
        (u/header-print-list "Transactions")))
 
@@ -71,15 +77,19 @@
       options-to-statement-files
       (u/header-print-list "Statement files")))
 
-(defn read-from-cache
-  [file-path]
-  (let [cache-path (to-cache-path-from-path file-path)]
-    (u/deserialize cache-path)))
+(defn print-cmd
+  [options]
+  (-> options
+      options-to-statement-files
+      files-to-statements
+      first
+      print-statement))
 
-(defn app [req]
-  {:status  200
-   :headers {"Content-Type" "text/html"}
-   :body    "hello HTTP!"})
+;(defn app [req]
+  ;{:status  200
+   ;:headers {"Content-Type" "text/html"}
+   ;:body    "hello HTTP!"})
+;"server" (run-server app {:port 8080})
 
 (defn -main [& args]
   (let [{:keys [action options exit-message ok?]} (validate-args args)]
@@ -88,9 +98,4 @@
       (case action
         "transactions" (transactions-cmd options)
         "verify" (verify-cmd options)
-
-        "cache" (parse-and-cache options)
-        "cache-dir" (parse-and-cache-dir options)
-        "print" (-> options :file-path parse-statement-path print-statement)
-        "server" (run-server app {:port 8080})
-        ))))
+        "print" (print-cmd options)))))
