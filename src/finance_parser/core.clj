@@ -47,24 +47,23 @@
 
 (defn parse-statement-file
   [statement-file]
-  (parse-statement-path (.getPath statement-file)))
+  (-> (parse-statement-path (.getPath statement-file))
+      (assoc :source-file (.getName statement-file))))
 
 (defn statements-to-transactions
   [statements]
-  (reduce
-    concat
-    []
-    (map :transactions statements)))
+  (let [transaction-seqs (map :transactions statements)]
+    (reduce concat [] transaction-seqs)))
 
 (defn transactions-cmd
   [options]
   (->> options
-      options-to-statement-files
-      (map parse-statement-file)
-      (u/header-print-list "Statements")
-      statements-to-transactions
-      (u/header-print-list "blah")
-      ))
+       options-to-statement-files
+       (filter #(not (.isDirectory %)))
+       (map parse-statement-file)
+       (sort-by :source-file)
+       statements-to-transactions
+       (u/header-print-list "Transactions")))
 
 (defn verify-cmd
   [options]

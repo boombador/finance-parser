@@ -14,11 +14,11 @@
   (reduce * (repeat n x)))
 
 (def section-defs
-  [{:section-name :intro :next-start "activity summary"}
-   {:section-name :activity :next-start "transaction history"}
-   {:section-name :transactions :next-start "ending balance"}
-   {:section-name :ending-balance :next-start "summary of checks written"}
-   {:section-name :checks :next-start "worksheet to balance your account"}
+  [{:section-name :intro :next-start "activity summary" :optional false}
+   {:section-name :activity :next-start "transaction history" :optional false}
+   {:section-name :transactions :next-start "ending balance" :optional false}
+   {:section-name :ending-balance :next-start "summary of checks written" :optional true}
+   {:section-name :checks :next-start "worksheet to balance your account" :optional false}
    {:section-name :worksheet :next-start nil}])
 
 (def month-date-regex #"^\d+\/\d+")
@@ -322,16 +322,23 @@
     transactions))
 
 (defn fold-section-into-structured
-  [[remaining-text processed] {:keys [section-name next-start]}]
-  (let [text-length (count remaining-text)
-        index-of-remainder (if next-start
-                             (s/index-of remaining-text next-start)
-                             (inc text-length))
-        no-more-remainder (> index-of-remainder text-length)
-        main-text (subs remaining-text 0 (dec index-of-remainder))
-        new-remainder (if no-more-remainder nil (subs remaining-text index-of-remainder))
-        new-processed (assoc processed section-name main-text)]
-    [new-remainder new-processed]))
+  [[remaining-text processed] {:keys [section-name next-start optional]}]
+  (if (and next-start
+           (not (.contains remaining-text next-start)))
+    (if optional
+      [remaining-text (assoc processed section-name nil)]
+      (throw (Exception. (str "Could not find required section " section-name " starting with " next-start))))
+    (let [text-length (count remaining-text)
+          index-of-remainder (if next-start
+                               (s/index-of remaining-text next-start)
+                               (inc text-length))
+          no-more-remainder (if index-of-remainder
+                              (> index-of-remainder text-length)
+                              true)
+          main-text (subs remaining-text 0 (dec index-of-remainder))
+          new-remainder (if no-more-remainder nil (subs remaining-text index-of-remainder))
+          new-processed (assoc processed section-name main-text)]
+      [new-remainder new-processed])))
 
 (defn segment-text
   "split text into labelled sections to simplify parse functions"
