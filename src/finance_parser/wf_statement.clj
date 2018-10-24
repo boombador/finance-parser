@@ -305,8 +305,7 @@
          (group-transactions start-balance)
          (map classify-transaction-date-group)
          flatten
-         (clean-classified-transactions start-balance)
-         (map transaction-to-string))))
+         (clean-classified-transactions start-balance)))) ;; (map transaction-to-string)
 
 (defn parse-transactions
   "returns list containing the summary map and the remaining document text"

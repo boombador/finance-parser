@@ -9,7 +9,10 @@
 
 (def cli-options
   [["-f" "--file-path INPUT_FILE" "Statement PDF to parse"]
-   ["-d" "--directory INPUT_DIRECTORY" "Directory with PDF statements to parse"]])
+   ["-d" "--directory INPUT_DIRECTORY" "Directory with PDF statements to parse"]
+   ["-c" "--checks-only" "Only show checks" :default false]
+   ["-a" "--amount-over" "Only show checks" :default nil]
+   ])
 
 (defn error-msg [errors]
   (str "The following errors occurred while parsing your command:\n\n"

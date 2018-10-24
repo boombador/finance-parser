@@ -25,7 +25,6 @@
 
 (defn options-to-statement-files
   [options]
-  (println options)
   (cond
     (contains? options :directory) (file-seq (io/file (:directory options)))
     (contains? options :file-path) [(io/file (:file-path options))]
@@ -63,13 +62,43 @@
        (map load-statement-file)
        (sort-by :source-filename)))
 
+(defn is-check
+  [trxn]
+  (= :check (:type trxn)))
+
+(def rent-amount 100)  ; need a config file outside of version control
+
+(defn is-rent
+  [{:keys [amount] :as trxn}]
+  (and (is-check trxn)
+       (> amount rent-amount)))
+
+(defn is-over-amount
+  [amount trxn]
+  (<= amount (:amount trxn))) ;; not precise, but probably useful
+
+(defn transaction-filter
+  [{:keys [checks-only amount-over] :as opts} transactions]
+  (let [checkp (if checks-only is-check nil)
+        overp (if amount-over (partial is-over-amount amount-over) nil)
+        predicates (filter identity [checkp overp])
+        ;pred (fn [trxn] (and ) (map))
+        pred (every? identity (map predicates))
+        ])
+  ;(if amount-over)
+  (if checks-only
+    (filter is-check transactions)
+    transactions))
+
 (defn transactions-cmd
   [options]
-  (->> options
-       options-to-statement-files
-       files-to-statements
-       statements-to-transactions
-       (u/header-print-list "Transactions")))
+  (let [rent-only (:rent-only options)]
+    (->> options
+         options-to-statement-files
+         files-to-statements
+         statements-to-transactions
+         (transaction-filter options)
+         (u/header-print-list "Transactions"))))
 
 (defn verify-cmd
   [options]
